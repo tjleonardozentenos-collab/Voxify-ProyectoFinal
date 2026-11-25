@@ -1,0 +1,34 @@
+# Dockerfile individual - Leonardo Zenteno
+# Proyecto que construye: backend-dotnet/backend-dotnet.csproj (ASP.NET Core 10 - Voxify API)
+
+# Etapa 1: compilación y publicación del proyecto .NET
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY backend-dotnet.csproj ./
+RUN dotnet restore backend-dotnet.csproj
+
+COPY . ./
+RUN dotnet publish backend-dotnet.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+# Etapa 2: imagen final liviana solo con el runtime ASP.NET Core y archivos compilados
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+
+# Puerto interno de la API dentro del contenedor
+ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_HTTP_PORTS=8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DISABLE_HTTPS_REDIRECTION=true
+
+# Variables configurables en tiempo de ejecución (pasar credenciales reales por .env o -e)
+ENV ConnectionStrings__DefaultConnection=""
+ENV FRONTEND_URL=http://localhost:3000
+ENV CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+ENV REPORT_ALLOWED_PROVIDERS=Twitch
+
+EXPOSE 8080
+
+COPY --from=build /app/publish ./
+
+ENTRYPOINT ["dotnet", "backend-dotnet.dll"]
